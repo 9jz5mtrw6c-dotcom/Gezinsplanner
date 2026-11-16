@@ -55,6 +55,9 @@
     .predrow{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid #cfe1f5}.predrow:first-of-type{border-top:0}
     .predrow button{min-width:38px;min-height:38px;padding:6px 10px}
     .badge{font-size:11px;border-radius:99px;padding:3px 8px;background:#fff;color:var(--green);white-space:nowrap}.badge.late{background:#fff2e0;color:#a85d00}
+  
+    #shopMode{position:fixed;inset:0;z-index:60;background:#f3f7fb;overflow:auto;padding:12px;padding-top:calc(12px + env(safe-area-inset-top,0px))}
+    #shopTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}.shoprow{display:flex;gap:14px;align-items:center;padding:18px 14px;margin:8px 0;background:#fff;border-radius:14px;font-size:20px;cursor:pointer}.shoprow.done{opacity:.45;text-decoration:line-through}
   </style>
 </head>
 <body>
@@ -100,14 +103,14 @@
           <h3 id="selectedDate"></h3>
           <div class="small">Wat eten we deze dag?</div>
           <div class="addrow"><input id="mealInput" placeholder="Bijv. pasta, soep of pizza" list="dishSuggestions" autocomplete="off"><datalist id="dishSuggestions"></datalist><button id="saveMeal" class="primary">Bewaar</button></div>
-          <div id="mealDish" class="small" style="margin:2px 0 8px"></div><div class="row between"><span id="mealStatus" class="small"></span><button id="deleteMeal" class="danger hidden">Maaltijd wissen</button></div>
+          <div id="mealDish" class="small" style="margin:2px 0 8px"></div><button id="weekPlan" class="secondary round-button" style="margin-bottom:8px">✨ Weekvoorstel maken</button><div class="row between"><span id="mealStatus" class="small"></span><button id="deleteMeal" class="danger hidden">Maaltijd wissen</button></div>
         </div>
       </div>
     </section>
     <section id="shoppingPanel" class="hidden">
       <div class="card">
         <h2 style="margin:0">Boodschappenlijst</h2><p class="small">Iedereen ziet dezelfde lijst. Gekochte producten blijven doorgestreept bewaard.</p>
-        <div id="predictions"></div><div class="shopping-form">
+        <button id="micBtn" class="secondary round-button">🎤 Inspreken: "melk, brood, 2 paprika's"</button><div id="predictions"></div><div class="shopping-form">
           <input id="itemInput" placeholder="Product" list="productSuggestions" autocomplete="off"><datalist id="productSuggestions"></datalist>
           <input id="quantityInput" placeholder="Hoeveelheid (bijv. 2 pakken)">
           <select id="storeInput" aria-label="Winkel">
@@ -117,14 +120,14 @@
           </select>
           <button id="addItem" class="primary">Toevoegen</button>
         </div>
-        <button id="weekIngredients" class="primary round-button">🍽️ Ingrediënten komende 7 dagen toevoegen</button><button id="newRound" class="secondary round-button">🧹 Gekochte producten opruimen</button>
+        <button id="receiptBtn" class="secondary round-button">🧾 Kassabon inlezen</button><button id="shopOpen" class="primary round-button">🏪 Winkelmodus</button><button id="weekIngredients" class="primary round-button">🍽️ Ingrediënten komende 7 dagen toevoegen</button><button id="newRound" class="secondary round-button">🧹 Gekochte producten opruimen</button>
         <div id="shoppingList"></div><div id="shoppingEmpty" class="empty hidden">De lijst is nog leeg. Voeg iets toe!</div>
       </div>
     </section>
     <section id="dishesPanel" class="hidden"><div class="card">
       <div class="row between"><h2 style="margin:0">Gerechten</h2><button class="primary" id="addDish">+ Nieuw</button></div>
       <p class="small">Bewaar per gerecht de ingrediënten. Plan je dat gerecht, dan zet één tik ze op de boodschappenlijst.</p>
-      <div id="dishList"></div><div id="dishEmpty" class="empty hidden">Nog geen gerechten.<br><br><button class="secondary" id="seedDishes">Startlijst laden</button></div>
+      <div class="row" style="margin:8px 0"><button class="secondary" id="dishFromUrl" style="flex:1">🔗 Van link</button><button class="secondary" id="dishFromPhoto" style="flex:1">📷 Van foto</button></div><label class="small">Wij eten met <input id="persons" type="number" min="1" max="12" style="width:70px;display:inline"> personen</label><div id="dishList"></div><div id="insights" class="small" style="margin-top:14px"></div><div id="dishEmpty" class="empty hidden">Nog geen gerechten.<br><br><button class="secondary" id="seedDishes">Startlijst laden</button></div>
     </div></section>
     <p class="notice" id="syncStatus">Verbonden met de gezinsdatabase.</p>
   </main>
@@ -132,8 +135,9 @@
 <dialog id="editDlg"><h3 style="margin:0 0 6px">Product wijzigen</h3>
   <label>Product</label><input id="editName"><label>Hoeveelheid</label><input id="editQty"><label>Winkel</label><select id="editStore"></select>
   <div class="row" style="margin-top:16px"><button class="secondary" id="editCancel" style="flex:1">Annuleren</button><button class="primary" id="editSave" style="flex:1">Opslaan</button></div></dialog>
+<input type="file" accept="image/*" id="imgPick" class="hidden"><div id="shopMode" class="hidden"><div id="shopTabs"></div><div id="shopList"></div><button id="shopClose" class="secondary round-button">Sluiten</button></div>
 <dialog id="dishDlg"><h3 id="dishTitle" style="margin:0 0 6px">Gerecht</h3>
-  <label>Naam</label><input id="dishName"><label>Ingrediënten</label><textarea id="dishIng" rows="8" placeholder="Pasta | 500 g | Jumbo"></textarea>
+  <label>Naam</label><input id="dishName"><label>Personen</label><input id="dishServ" type="number" min="1" max="12"><label>Beoordeling</label><select id="dishRate"><option value="">Nog geen mening</option><option value="1">👍 Lekker, vaker</option><option value="-1">👎 Liever niet</option></select><label>Ingrediënten</label><textarea id="dishIng" rows="8" placeholder="Pasta | 500 g | Jumbo"></textarea>
   <p class="small">Eén per regel: product | hoeveelheid | winkel. Een ~ ervoor = meestal in huis (wordt overgeslagen).</p>
   <div class="row"><button class="danger hidden" id="dishDel">Wissen</button><button class="secondary" id="dishCancel" style="flex:1">Annuleren</button><button class="primary" id="dishSave" style="flex:1">Opslaan</button></div></dialog>
 <script>
@@ -143,6 +147,9 @@
   document.querySelectorAll('[data-logo]').forEach(i=>i.src=LOGO);
   ['icon','apple-touch-icon'].forEach(r=>{const l=document.createElement('link');l.rel=r;l.href=LOGO;document.head.append(l)});
   const DEFAULT_CONFIG={url:'',key:''}; // optioneel: vul in zodat nieuwe apparaten niet om instellingen vragen
+  const mf=new Blob([JSON.stringify({name:'GezinsPlanner',short_name:'Planner',display:'standalone',background_color:'#f3f7fb',theme_color:'#2866a5',icons:[{src:LOGO,sizes:'256x256',type:'image/webp'}]})],{type:'application/manifest+json'});
+  const ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(mf);document.head.append(ml);
+  [['apple-mobile-web-app-capable','yes'],['mobile-web-app-capable','yes'],['apple-mobile-web-app-title','GezinsPlanner'],['theme-color','#2866a5']].forEach(([n,c])=>{const m=document.createElement('meta');m.name=n;m.content=c;document.head.append(m)});
   let sb=null, user=null, month=new Date(new Date().getFullYear(),new Date().getMonth(),1), selected=new Date();
   let meals={}, items=[], channel=null, purchases=[], started=null, editing=null, dishes=[], editingDish=null;
   let dismissed=JSON.parse(localStorage.getItem('gp_dismissed')||'{}');
@@ -167,10 +174,10 @@
   $('resetPassword').onclick=async()=>{const email=$('email').value.trim();if(!email){$('authError').textContent='Vul eerst je e-mailadres in.';return}$('authError').textContent='Bezig met versturen...';const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});$('authError').textContent=error?'Versturen mislukt: '+error.message:'Als dit e-mailadres bekend is, ontvang je een e-mail om je wachtwoord in te stellen. Controleer ook je spam.'};
   $('logout').onclick=()=>sb.auth.signOut();
   $('confirmPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('savePassword').click()});
-  async function start(u){if(started===u.id&&channel){user=u;return}started=u.id;user=u;$('auth').classList.add('hidden');$('setPassword').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');await Promise.all([loadMeals(),loadItems(),loadPurchases(),loadDishes()]);renderCalendar();renderItems();if(channel)sb.removeChannel(channel);channel=sb.channel('family-live').on('postgres_changes',{event:'*',schema:'public',table:'meal_plans'},later(loadMeals)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_items'},later(loadItems)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_purchases'},later(loadPurchases)).on('postgres_changes',{event:'*',schema:'public',table:'dishes'},later(loadDishes)).subscribe();}
+  async function start(u){if(started===u.id&&channel){user=u;return}started=u.id;user=u;$('auth').classList.add('hidden');$('setPassword').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');await Promise.all([loadMeals(),loadItems(),loadPurchases(),loadDishes()]);renderCalendar();renderItems();if(channel)sb.removeChannel(channel);channel=sb.channel('family-live').on('postgres_changes',{event:'*',schema:'public',table:'meal_plans'},later(loadMeals)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_items'},later(loadItems)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_purchases'},later(loadPurchases)).on('postgres_changes',{event:'*',schema:'public',table:'dishes'},later(loadDishes)).on('postgres_changes',{event:'INSERT',schema:'public',table:'shopping_items'},p=>{if(p.new.created_by!==user.id)toast('🛒 Nieuw op de lijst: '+p.new.name)}).on('postgres_changes',{event:'*',schema:'public',table:'meal_plans'},p=>{if(p.new?.created_by&&p.new.created_by!==user.id)toast('📅 Gepland: '+p.new.meal)}).subscribe();}
   function fail(e){$('syncStatus').textContent='Let op: '+(e?.message||'Er ging iets mis.');}
   async function loadMeals(){const {data,error}=await sb.from('meal_plans').select('*');if(error){fail(error);return}meals={};(data||[]).forEach(x=>meals[x.meal_date]=x);renderCalendar();updateSelected()}
-  async function loadItems(){const {data,error}=await sb.from('shopping_items').select('*').order('sort_order').order('created_at');if(error){fail(error);return}items=data||[];renderItems();renderPredictions()}
+  async function loadItems(){const {data,error}=await sb.from('shopping_items').select('*').order('sort_order').order('created_at');if(error){fail(error);return}items=data||[];renderItems();renderPredictions();renderShop()}
   function dateKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
   function renderCalendar(){const names=['ma','di','wo','do','vr','za','zo'];$('monthTitle').textContent=month.toLocaleDateString('nl-NL',{month:'long',year:'numeric'});const first=new Date(month.getFullYear(),month.getMonth(),1);let offset=(first.getDay()+6)%7;const start=new Date(first);start.setDate(1-offset);let out=names.map(n=>`<div class="dow">${n}</div>`).join('');for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);const k=dateKey(d),m=meals[k];out+=`<div class="day ${d.getMonth()!==month.getMonth()?'other':''} ${dateKey(d)===dateKey(new Date())?'today':''} ${dateKey(d)===dateKey(selected)?'selected':''}" data-date="${k}"><div class="num">${d.getDate()}</div>${m?`<div class="meal">${escapeHtml(m.meal)}</div>`:''}</div>`}$('calendar').innerHTML=out;$('calendar').querySelectorAll('.day').forEach(el=>el.onclick=()=>{selected=new Date(el.dataset.date+'T12:00:00');if(selected.getMonth()!==month.getMonth())month=new Date(selected.getFullYear(),selected.getMonth(),1);renderCalendar();updateSelected()});updateSelected()}
   function updateSelected(){const k=dateKey(selected),m=meals[k];$('selectedDate').textContent=selected.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});$('mealInput').value=m?.meal||'';$('mealStatus').textContent=m?'Opgeslagen':'Nog geen maaltijd gepland';$('deleteMeal').classList.toggle('hidden',!m);renderMealDish()}
@@ -287,6 +294,85 @@
     if(error)fail(error);else await loadItems();
   };
 
+  // ---------- Lezen met Claude (Edge Function gezin-ai) ----------
+  let pickMode=null;
+  const pick=m=>{pickMode=m;$('imgPick').value='';$('imgPick').click()};
+  const fileToJpeg=f=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.85).split(',')[1])};im.onerror=rej;im.src=URL.createObjectURL(f)});
+  async function ai(body){
+    toast('🤖 Even lezen…');
+    const {data,error}=await sb.functions.invoke('gezin-ai',{body:{...body,stores:STORES}});
+    if(error||data?.error){alert('Lezen mislukt: '+(data?.error||error.message)+'\n(Staat de functie gezin-ai in Supabase?)');return null}
+    return data;
+  }
+  function fillDish(r){openDish(null,r.name);$('dishServ').value=r.servings||4;$('dishIng').value=fmtIng((r.ingredients||[]).map(i=>({...i,store:STORES.includes(i.store)?i.store:'Jumbo'})))}
+  $('dishFromUrl').onclick=async()=>{const u=prompt('Plak de link van het recept:');if(!u)return;const r=await ai({mode:'recipe',url:u.trim()});if(r)fillDish(r)};
+  $('dishFromPhoto').onclick=()=>pick('recipe');
+  $('receiptBtn').onclick=()=>pick('receipt');
+  $('imgPick').onchange=async()=>{
+    const f=$('imgPick').files[0];if(!f)return;
+    const r=await ai({mode:pickMode,image:await fileToJpeg(f),media_type:'image/jpeg'});
+    if(r)pickMode==='recipe'?fillDish(r):saveReceipt(r);
+  };
+  async function saveReceipt(r){
+    const list=(r.items||[]).filter(i=>i.name);
+    if(!list.length){alert('Geen producten gevonden op de bon.');return}
+    const dt=/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:dateKey(new Date());
+    if(!confirm('Kassabon van '+dt+(r.store?' ('+r.store+')':'')+(r.total?' – €'+r.total:'')+'\n\n'+list.map(i=>'• '+i.name+(i.quantity?' ('+i.quantity+')':'')+(i.price!=null?' €'+i.price:'')).join('\n')+'\n\nToevoegen aan jullie aankoopgeschiedenis?'))return;
+    const rows=list.map(i=>({product_name:i.name,quantity:i.quantity||null,store_name:STORES.includes(r.store)?r.store:null,price:i.price??null,created_by:user.id,created_at:dt+'T12:00:00'}));
+    const {error}=await sb.from('shopping_purchases').insert(rows);
+    if(error)fail(error);else{await loadPurchases();toast('🧾 '+rows.length+' aankopen opgeslagen')}
+  }
+
+  // ---------- Extra's ----------
+  let persons=+localStorage.getItem('gp_persons')||4,shopStore=null,wake=null;
+  $('persons').value=persons;$('persons').onchange=()=>{persons=Math.max(1,+$('persons').value||4);localStorage.setItem('gp_persons',persons)};
+  const scaleQty=(q,f)=>!q||f===1?q:q.replace(/^\d+([.,]\d+)?/,n=>String(Math.round(parseFloat(n.replace(',','.'))*f*10)/10).replace('.',','));
+  function toast(t){const e=document.createElement('div');e.textContent=t;e.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#24364b;color:#fff;padding:12px 16px;border-radius:12px;z-index:99;max-width:90vw';document.body.append(e);setTimeout(()=>e.remove(),4000)}
+  function eatStats(d){const t=dateKey(new Date());let last=null,n=0;Object.values(meals).forEach(m=>{if(norm(m.meal)===norm(d.name)&&m.meal_date<=t){n++;if(!last||m.meal_date>last)last=m.meal_date}});return {n,days:last?Math.round((Date.now()-new Date(last+'T12:00'))/864e5):999}}
+  const eatInfo=d=>{const e=eatStats(d);return e.n?`laatst ${e.days} dagen geleden · ${e.n}× gegeten`:'nog niet gegeten'};
+  function renderInsights(){
+    const buy=[...buildStats().values()].map(s=>[s.name,s.days.size]).sort((a,b)=>b[1]-a[1]).slice(0,5),cnt={};
+    Object.values(meals).forEach(m=>cnt[m.meal]=(cnt[m.meal]||0)+1);
+    const spent=purchases.filter(p=>p.price&&Date.now()-new Date(p.created_at)<30*864e5).reduce((a,p)=>a+Number(p.price),0);
+    const eat=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,5),f=a=>a.map(x=>escapeHtml(x[0])+' ('+x[1]+'×)').join(', ')||'–';
+    $('insights').innerHTML=buy.length||eat.length?`<strong>📊 Inzicht</strong><br>Meest gekocht: ${f(buy)}<br>Meest gegeten: ${f(eat)}${spent>0?'<br>Uitgegeven laatste 30 dagen (bonnen): €'+spent.toFixed(2).replace('.',','):''}`:'';
+  }
+  $('weekPlan').onclick=async()=>{ // vult lege dagen met gerechten die lang niet geweest zijn (👍 telt extra, 👎 valt af)
+    const free=[];for(let i=0;i<7;i++){const d=new Date();d.setHours(12);d.setDate(d.getDate()+i);if(!meals[dateKey(d)])free.push(dateKey(d))}
+    if(!free.length){alert('De komende 7 dagen zijn al gepland.');return}
+    const pool=dishes.filter(d=>d.rating!==-1).map(d=>({d,s:Math.min(eatStats(d).days,60)/60+(d.rating===1?.5:0)+Math.random()*.3})).sort((a,b)=>b.s-a.s).slice(0,free.length);
+    if(!pool.length){alert('Voeg eerst gerechten toe op het tabblad Gerechten.');return}
+    const plan=pool.map((p,i)=>({date:free[i],meal:p.d.name}));
+    if(!confirm('Weekvoorstel:\n\n'+plan.map(p=>'• '+new Date(p.date+'T12:00').toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'short'})+': '+p.meal).join('\n')+'\n\nIn de planner zetten?'))return;
+    const {error}=await sb.from('meal_plans').insert(plan.map(p=>({meal_date:p.date,meal:p.meal,created_by:user.id})));
+    if(error)fail(error);else await loadMeals();
+  };
+  async function addMany(t){ // "melk, 2 paprika's, brood"
+    const st=$('storeInput').value;
+    for(const part of t.split(/[,\n]/).map(x=>x.trim()).filter(Boolean)){
+      const m=part.match(/^(\d+(?:[.,]\d+)?\s?(?:x|stuks?|kg|g|l|ml|pak|pakken|zak|blik)?)\s+(.+)$/i),name=m?m[2]:part,s=buildStats().get(norm(name)),known=s&&top(s.store);
+      if(!await putOnList({name,quantity:m?m[1]:(s&&top(s.qty))||'',store:known&&STORES.includes(known)?known:st}))break;
+    }
+    $('itemInput').value='';$('quantityInput').value='';await loadItems();
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)$('micBtn').classList.add('hidden');
+  $('micBtn').onclick=()=>{const r=new SR();r.lang='nl-NL';r.onresult=e=>addMany(e.results[0][0].transcript.replace(/\s+en\s+/gi,', '));r.onerror=()=>toast('Spraakherkenning werkt hier niet.');r.start();toast('🎤 Spreek maar…')};
+  // Winkelmodus: één winkel tegelijk, grote regels, scherm blijft aan
+  const sk=x=>storeKey(x)||'Geen winkel';
+  function renderShop(){
+    if($('shopMode').classList.contains('hidden'))return;
+    const order=[...STORES,'Geen winkel'],all=[...new Set(items.map(sk))].sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+    if(!all.includes(shopStore))shopStore=all.find(s=>items.some(x=>!x.completed&&sk(x)===s))||all[0]||null;
+    $('shopTabs').innerHTML=all.map(s=>`<button class="${s===shopStore?'primary':'secondary'}" data-s="${escapeHtml(s)}">${escapeHtml(s)} (${items.filter(x=>!x.completed&&sk(x)===s).length})</button>`).join('');
+    const list=items.filter(x=>sk(x)===shopStore).sort((a,b)=>(!!a.completed-!!b.completed)||byOrder(a,b));
+    $('shopList').innerHTML=list.length?list.map(x=>`<div class="shoprow ${x.completed?'done':''}" data-id="${x.id}"><span>${x.completed?'✅':'⬜'}</span><div><b>${escapeHtml(x.name)}</b>${x.quantity?'<div class="small">'+escapeHtml(x.quantity)+'</div>':''}</div></div>`).join(''):'<p class="small">Niets op de lijst. 🎉</p>';
+  }
+  $('shopOpen').onclick=async()=>{$('shopMode').classList.remove('hidden');try{wake=await navigator.wakeLock?.request('screen')}catch{}renderShop()};
+  $('shopClose').onclick=()=>{$('shopMode').classList.add('hidden');wake?.release?.();wake=null};
+  $('shopTabs').onclick=e=>{const b=e.target.closest('[data-s]');if(b){shopStore=b.dataset.s;renderShop()}};
+  $('shopList').onclick=e=>{const r=e.target.closest('[data-id]'),it=r&&items.find(x=>String(x.id)===r.dataset.id);if(!it)return;const w=!it.completed;it.completed=w;renderShop();toggleItem(it,{checked:w}).then(loadItems)};
+
   // ---------- Gerechten ----------
   const SEED=`# Pasta
 Pasta | 500 g | Jumbo
@@ -359,7 +445,7 @@ Paprika | 2 | Markt
   }
   function renderDishes(){
     $('dishEmpty').classList.toggle('hidden',dishes.length>0);
-    $('dishList').innerHTML=dishes.map(d=>`<div class="predrow" data-dish="${d.id}" style="cursor:pointer;border-top:1px solid var(--line)"><div class="product-main"><div class="product-name">${escapeHtml(d.name)}</div><div class="product-meta">${escapeHtml(d.ingredients.map(i=>i.name).join(', '))||'Nog geen ingrediënten'}</div></div><span class="badge">${d.ingredients.length}</span><button class="secondary" title="Wijzigen">✎</button></div>`).join('');
+    $('dishList').innerHTML=dishes.map(d=>`<div class="predrow" data-dish="${d.id}" style="cursor:pointer;border-top:1px solid var(--line)"><div class="product-main"><div class="product-name">${escapeHtml(d.name)}</div><div class="product-meta">${escapeHtml(d.ingredients.map(i=>i.name).join(', '))||'Nog geen ingrediënten'}<br>${eatInfo(d)}</div></div><span class="badge">${d.rating===1?'👍':d.rating===-1?'👎':''} ${d.ingredients.length}</span><button class="secondary" title="Wijzigen">✎</button></div>`).join('');
     $('dishSuggestions').innerHTML=dishes.map(d=>`<option value="${escapeHtml(d.name)}">`).join('');
     renderMealDish();
   }
@@ -372,7 +458,7 @@ Paprika | 2 | Markt
   }
   function openDish(d,name){
     editingDish=d||null;$('dishTitle').textContent=d?'Gerecht wijzigen':'Nieuw gerecht';
-    $('dishName').value=d?d.name:(name||'');$('dishIng').value=d?fmtIng(d.ingredients):'';
+    $('dishName').value=d?d.name:(name||'');$('dishIng').value=d?fmtIng(d.ingredients):'';$('dishServ').value=d?.servings||4;$('dishRate').value=d?.rating??'';
     $('dishDel').classList.toggle('hidden',!d);$('dishDlg').showModal();
   }
   $('dishList').onclick=e=>{const r=e.target.closest('[data-dish]');if(r)openDish(dishes.find(d=>String(d.id)===r.dataset.dish))};
@@ -380,7 +466,7 @@ Paprika | 2 | Markt
   $('dishCancel').onclick=()=>$('dishDlg').close();
   $('dishSave').onclick=async()=>{
     const name=$('dishName').value.trim();if(!name)return;
-    const row={name,ingredients:parseIng($('dishIng').value)};
+    const row={name,ingredients:parseIng($('dishIng').value),servings:+$('dishServ').value||4,rating:$('dishRate').value===''?null:+$('dishRate').value};
     const {error}=await(editingDish?sb.from('dishes').update(row).eq('id',editingDish.id):sb.from('dishes').insert({...row,created_by:user.id}));
     $('dishDlg').close();if(error)fail(error);else await loadDishes();
   };
@@ -406,7 +492,7 @@ Paprika | 2 | Markt
     for(let i=0;i<7;i++){
       const d=new Date();d.setDate(d.getDate()+i);const m=meals[dateKey(d)];if(!m)continue;
       const dish=dishFor(m.meal);if(!dish||!dish.ingredients.length){noRecipe.push(m.meal);continue}
-      dish.ingredients.forEach(g=>{
+      dish.ingredients.map(g=>({...g,quantity:scaleQty(g.quantity,persons/(dish.servings||4))})).forEach(g=>{
         const k=norm(g.name);if(on.has(k)||(g.pantry&&!due.has(k)))return;
         const e=need.get(k);
         if(!e)need.set(k,{...g,quantity:g.quantity||''});
@@ -464,7 +550,7 @@ Paprika | 2 | Markt
   }
   function renderPredictions(){
     const stats=buildStats();
-    $('productSuggestions').innerHTML=[...stats.values()].map(s=>`<option value="${escapeHtml(s.name)}">`).join('');
+    renderInsights();$('productSuggestions').innerHTML=[...stats.values()].map(s=>`<option value="${escapeHtml(s.name)}">`).join('');
     const list=predict();
     $('predictions').innerHTML=`<div class="pred"><div class="row between"><strong>💡 Voorspeld voor de volgende ronde</strong>${list.length?'<button class="secondary" data-add="*">Alles</button>':''}</div>`+
       (list.length?list.map(p=>`<div class="predrow"><div class="product-main"><div class="product-name">${escapeHtml(p.name)}</div><div class="product-meta">${escapeHtml([p.qty,p.store].filter(Boolean).join(' · '))}${p.qty||p.store?' — ':''}ongeveer elke ${p.interval} dagen, laatst ${p.since} dagen geleden</div></div><span class="badge ${p.score>1.4?'late':''}">${p.score>1.4?'over tijd':p.score>=1?'nu':'bijna'}</span><button class="primary" data-add="${escapeHtml(p.key)}" title="Toevoegen">+</button><button class="ghost" data-skip="${escapeHtml(p.key)}" title="Niet nu (5 dagen)">✕</button></div>`).join('')
@@ -491,6 +577,7 @@ Paprika | 2 | Markt
   });
   
   $('addItem').onclick=async()=>{
+    if(/[,\n]/.test($('itemInput').value)){await addMany($('itemInput').value);return}
     const name=$('itemInput').value.trim();if(!name)return;
     const quantity=$('quantityInput').value.trim(),store=$('storeInput').value;
     if(items.some(x=>!x.completed&&norm(x.name)===norm(name))&&!confirm(name+' staat al op de lijst. Toch nog een keer toevoegen?'))return;
