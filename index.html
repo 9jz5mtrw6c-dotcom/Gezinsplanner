@@ -58,7 +58,7 @@
   
     #shopMode{position:fixed;inset:0;z-index:60;background:#f3f7fb;overflow:auto;padding:12px;padding-top:calc(12px + env(safe-area-inset-top,0px))}
     #shopTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}.shoprow{display:flex;gap:14px;align-items:center;padding:18px 14px;margin:8px 0;background:#fff;border-radius:14px;font-size:20px;cursor:pointer}.shoprow.done{opacity:.45;text-decoration:line-through}
-      @media(max-width:520px){.tab{padding:10px 4px;font-size:13px}}
+      @media(max-width:520px){.tab{padding:8px 1px;font-size:12px;line-height:1.35}}
   </style>
 </head>
 <body>
@@ -95,7 +95,7 @@
   </section>
 
   <main id="app" class="hidden">
-    <div class="tabs"><button class="tab active" data-tab="calendar">📅 Planner</button><button class="tab" data-tab="shopping">🛒 Lijst</button><button class="tab" data-tab="dishes">🍳 Gerechten</button><button class="tab" data-tab="history">📚 Historie</button></div>
+    <div class="tabs"><button class="tab active" data-tab="calendar">📅<br>Planner</button><button class="tab" data-tab="shopping">🛒<br>Lijst</button><button class="tab" data-tab="std">⭐<br>Standaard</button><button class="tab" data-tab="dishes">🍳<br>Gerechten</button><button class="tab" data-tab="history">📚<br>Historie</button></div>
     <section id="calendarPanel">
       <div class="card">
         <div class="monthbar"><button id="prevMonth">←</button><strong id="monthTitle"></strong><button id="nextMonth">→</button></div>
@@ -125,10 +125,18 @@
         <div id="shoppingList"></div><div id="shoppingEmpty" class="empty hidden">De lijst is nog leeg. Voeg iets toe!</div>
       </div>
     </section>
+    <section id="stdPanel" class="hidden"><div class="card">
+      <h2 style="margin:0">Standaard boodschappen</h2>
+      <p class="small">Producten die jullie regelmatig halen. Het vinkje bepaalt of een product op de boodschappenlijst komt. Per winkel, meest gekocht bovenaan.</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><input id="stdName" placeholder="Product (meerdere met komma)" list="productSuggestions" autocomplete="off" style="flex:2;min-width:140px"><input id="stdQty" placeholder="Hoeveelheid" style="flex:1;min-width:90px"><select id="stdStore" style="flex:1;min-width:110px"></select><button class="primary" id="stdAdd">+</button></div>
+      <div id="stdSug" class="small" style="margin:10px 0"></div>
+      <div class="row between" style="margin:8px 0"><span class="small" id="stdCount"></span><button class="primary" id="stdPush">📌 Aangevinkte op de lijst</button></div>
+      <div id="stdList"></div>
+    </div></section>
     <section id="histPanel" class="hidden"><div class="card" id="histBox"></div></section>
     <section id="dishesPanel" class="hidden"><div class="card">
       <div class="row between"><h2 style="margin:0">Gerechten</h2><button class="primary" id="addDish">+ Nieuw</button></div>
-      <p class="small">Bewaar per gerecht de ingrediënten. Plan je dat gerecht, dan zet één tik ze op de boodschappenlijst. Tip: een gerecht met de naam “Vaste boodschappen” komt elke week vanzelf in “Nog nodig”.</p>
+      <p class="small">Bewaar per gerecht de ingrediënten. Plan je dat gerecht, dan zet één tik ze op de boodschappenlijst. Tip: producten die je altijd haalt zet je op het tabblad Standaard.</p>
       <div class="row" style="margin:8px 0"><button class="secondary" id="dishFromUrl" style="flex:1">🔗 Van link</button></div><label class="small">Wij eten met <input id="persons" type="number" min="1" max="12" style="width:70px;display:inline"> personen</label><div id="dishList"></div><div id="insights" class="small" style="margin-top:14px"></div><button class="secondary" id="backupBtn" style="margin-top:10px">💾 Back-up downloaden</button><div id="dishEmpty" class="empty hidden">Nog geen gerechten.<br><br><button class="secondary" id="seedDishes">Startlijst laden</button></div>
     </div></section>
     <p class="notice" id="syncStatus">Verbonden met de gezinsdatabase.</p>
@@ -144,10 +152,13 @@
 <dialog id="buyDlg"><h3 id="buyTitle" style="margin:0 0 6px">Aankoop</h3>
   <label>Product</label><input id="buyName" list="productSuggestions" autocomplete="off"><label>Hoeveelheid</label><input id="buyQty"><label>Winkel</label><select id="buyStore"></select><label>Datum</label><input id="buyDate" type="date">
   <div class="row" style="margin-top:16px"><button class="danger hidden" id="buyDel">Wissen</button><button class="secondary" id="buyCancel" style="flex:1">Annuleren</button><button class="primary" id="buySave" style="flex:1">Opslaan</button></div></dialog>
+<dialog id="stdDlg"><h3 style="margin:0 0 6px">Standaardproduct</h3>
+  <label>Product</label><input id="stdEditName"><label>Hoeveelheid</label><input id="stdEditQty"><label>Winkel</label><select id="stdEditStore"></select>
+  <div class="row" style="margin-top:16px"><button class="danger" id="stdDel">Wissen</button><button class="secondary" id="stdCancel" style="flex:1">Annuleren</button><button class="primary" id="stdSave" style="flex:1">Opslaan</button></div></dialog>
 <dialog id="dishDlg"><h3 id="dishTitle" style="margin:0 0 6px">Gerecht</h3>
   <label>Naam</label><input id="dishName"><label>Personen</label><input id="dishServ" type="number" min="1" max="12"><label>Beoordeling</label><select id="dishRate"><option value="">Nog geen mening</option><option value="1">👍 Lekker, vaker</option><option value="-1">👎 Liever niet</option></select><label>Ingrediënten</label><textarea id="dishIng" rows="8" placeholder="Pasta | 500 g | Jumbo"></textarea>
   <p class="small">Eén per regel: product | hoeveelheid | winkel. Een ~ ervoor = meestal in huis (wordt overgeslagen).</p>
-  <div class="row"><button class="danger hidden" id="dishDel">Wissen</button><button class="secondary" id="dishCancel" style="flex:1">Annuleren</button><button class="primary" id="dishSave" style="flex:1">Opslaan</button></div></dialog>
+  <button class="secondary hidden round-button" id="dishToList" style="margin-bottom:10px">🛒 Alle ingrediënten op de lijst</button><div class="row"><button class="danger hidden" id="dishDel">Wissen</button><button class="secondary" id="dishCancel" style="flex:1">Annuleren</button><button class="primary" id="dishSave" style="flex:1">Opslaan</button></div></dialog>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -158,7 +169,7 @@
   if(location.protocol.startsWith('http')){const ml=document.createElement('link');ml.rel='manifest';ml.href='manifest.webmanifest';document.head.append(ml);navigator.serviceWorker?.register('sw.js').catch(()=>{})}
   [['apple-mobile-web-app-capable','yes'],['mobile-web-app-capable','yes'],['apple-mobile-web-app-title','GezinsPlanner'],['theme-color','#2866a5']].forEach(([n,c])=>{const m=document.createElement('meta');m.name=n;m.content=c;document.head.append(m)});
   let sb=null, user=null, month=new Date(new Date().getFullYear(),new Date().getMonth(),1), selected=new Date();
-  let meals={}, items=[], channel=null, purchases=[], started=null, editing=null, dishes=[], editingDish=null;
+  let meals={}, items=[], channel=null, purchases=[], started=null, editing=null, dishes=[], editingDish=null, std=[], editingStd=null, weekOff=0, histOff=0, editingBuy=null, walkOn=localStorage.getItem('gp_walk')==='1', walk=new Map(), persons=+localStorage.getItem('gp_persons')||4;
   let dismissed=JSON.parse(localStorage.getItem('gp_dismissed')||'{}');
   const later=(fn,ms=250)=>{let t;return()=>{clearTimeout(t);t=setTimeout(fn,ms)}};
   const configKey='gezinsplanner_supabase_config';
@@ -181,7 +192,7 @@
   $('resetPassword').onclick=async()=>{const email=$('email').value.trim();if(!email){$('authError').textContent='Vul eerst je e-mailadres in.';return}$('authError').textContent='Bezig met versturen...';const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});$('authError').textContent=error?'Versturen mislukt: '+error.message:'Als dit e-mailadres bekend is, ontvang je een e-mail om je wachtwoord in te stellen. Controleer ook je spam.'};
   $('logout').onclick=()=>sb.auth.signOut();
   $('confirmPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('savePassword').click()});
-  async function start(u){if(started===u.id&&channel){user=u;return}started=u.id;user=u;$('auth').classList.add('hidden');$('setPassword').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');await Promise.all([loadMeals(),loadItems(),loadPurchases(),loadDishes()]);renderCalendar();renderItems();if(channel)sb.removeChannel(channel);channel=sb.channel('family-live').on('postgres_changes',{event:'*',schema:'public',table:'meal_plans'},later(loadMeals)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_items'},later(loadItems)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_purchases'},later(loadPurchases)).on('postgres_changes',{event:'*',schema:'public',table:'dishes'},later(loadDishes)).on('postgres_changes',{event:'INSERT',schema:'public',table:'shopping_items'},p=>{if(p.new.created_by!==user.id)toast('🛒 Nieuw op de lijst: '+p.new.name)}).on('postgres_changes',{event:'*',schema:'public',table:'meal_plans'},p=>{if(p.new?.created_by&&p.new.created_by!==user.id)toast('📅 Gepland: '+p.new.meal)}).subscribe();}
+  async function start(u){if(started===u.id&&channel){user=u;return}started=u.id;user=u;$('auth').classList.add('hidden');$('setPassword').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');await Promise.all([loadMeals(),loadItems(),loadPurchases(),loadDishes(),loadStd()]);renderCalendar();renderItems();if(channel)sb.removeChannel(channel);channel=sb.channel('family-live').on('postgres_changes',{event:'*',schema:'public',table:'meal_plans'},later(loadMeals)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_items'},later(loadItems)).on('postgres_changes',{event:'*',schema:'public',table:'shopping_purchases'},later(loadPurchases)).on('postgres_changes',{event:'*',schema:'public',table:'dishes'},later(loadDishes)).on('postgres_changes',{event:'*',schema:'public',table:'standard_items'},later(loadStd)).on('postgres_changes',{event:'INSERT',schema:'public',table:'shopping_items'},p=>{if(p.new.created_by!==user.id)toast('🛒 Nieuw op de lijst: '+p.new.name)}).on('postgres_changes',{event:'*',schema:'public',table:'meal_plans'},p=>{if(p.new?.created_by&&p.new.created_by!==user.id)toast('📅 Gepland: '+p.new.meal)}).subscribe();}
   function fail(e){$('syncStatus').textContent='Let op: '+(e?.message||'Er ging iets mis.');}
   async function loadMeals(){const {data,error}=await sb.from('meal_plans').select('*');if(error){fail(error);return}meals={};(data||[]).forEach(x=>meals[x.meal_date]=x);renderCalendar();updateSelected()}
   async function loadItems(){const {data,error}=await sb.from('shopping_items').select('*').order('sort_order').order('created_at');if(error){fail(error);try{items=JSON.parse(localStorage.getItem('gp_items')||'[]');renderItems();renderWeek()}catch{}return}items=data||[];try{localStorage.setItem('gp_items',JSON.stringify(items))}catch{}renderItems();renderPredictions();renderShop();renderWeek()}
@@ -316,8 +327,17 @@
 
   // ---------- Nog nodig voor de week ----------
   // Afgeleid uit planner + gerechten: gepland, minus wat op de lijst staat, minus wat sinds vrijdag voor de week is gekocht/afgevinkt.
-  let weekOff=0;
-  function weekWin(){const d=new Date();d.setHours(12,0,0,0);const mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7)+7*weekOff);const end=new Date(mon);end.setDate(mon.getDate()+6);return {start:weekOff?mon:d,end,from:new Date(mon.getTime()-3*864e5)}}
+  
+  function periodWin(off){ // vrijdag (avond) t/m donderdag; off 0 = deze periode, 1 = volgende, -1 = vorige
+    const d=new Date();d.setHours(12,0,0,0);
+    const fri=new Date(d);fri.setDate(d.getDate()-((d.getDay()+2)%7)+7*off);
+    const thu=new Date(fri);thu.setDate(fri.getDate()+6);return {fri,thu};
+  }
+  function planDays(){ // te plannen dagen: rest van deze periode, of de volgende als er minder dan 3 dagen over zijn
+    const t=new Date();t.setHours(12,0,0,0);let w=periodWin(0);if(Math.round((w.thu-t)/864e5)+1<3)w=periodWin(1);
+    const out=[];for(const d=new Date(Math.max(w.fri,t));d<=w.thu;d.setDate(d.getDate()+1))out.push(new Date(d));return out;
+  }
+  function weekWin(){const {fri,thu}=periodWin(weekOff),t=new Date();t.setHours(12,0,0,0);return {start:weekOff?fri:t,end:thu,from:fri}}
   function weekNeeds(){
     const {start,end,from}=weekWin(),f=dayNr(from),on=new Set(items.filter(x=>!x.completed).map(x=>norm(x.name))),got=new Set(items.filter(x=>x.completed).map(x=>norm(x.name)));
     purchases.forEach(p=>{if(p.created_at&&dayNr(p.created_at)>=f)got.add(norm(p.product_name))});
@@ -328,7 +348,7 @@
       if(!e)need.set(k,{...g,quantity:g.quantity||''});
       else if(g.quantity&&!e.quantity.split(' + ').includes(g.quantity))e.quantity=[e.quantity,g.quantity].filter(Boolean).join(' + ');
     });
-    const vast=dishFor('Vaste boodschappen');if(vast){planned++;add(vast,1)}
+    const sel=std.filter(x=>x.selected);if(sel.length){planned++;add({ingredients:sel.map(x=>({name:x.name,quantity:x.quantity||'',store:x.store_name||'Jumbo',pantry:false}))},1)}
     for(const d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
       const m=meals[dateKey(d)];if(!m)continue;planned++;
       const dish=dishFor(m.meal);if(!dish||!dish.ingredients.length){noRecipe.push(m.meal);continue}
@@ -336,26 +356,104 @@
     }
     return {need:[...need.values()],noRecipe:[...new Set(noRecipe)],planned};
   }
+  const SUN_STORES=['Jumbo']; // alles wat niet bij deze winkels hoort, hoort bij de vrijdagronde
   function renderWeek(){
     const box=$('weekCard');if(!box)return;
-    const {need,noRecipe,planned}=weekNeeds();
-    box.innerHTML=`<div class="pred"><div class="row between"><strong>🍽️ Nog nodig ${weekOff?'volgende week':'deze week'}</strong><span class="row"><button class="secondary" data-wk="toggle">${weekOff?'← Deze':'Volgende →'}</button>${need.length?'<button class="primary" data-wk="all">Alles</button>':''}</span></div>`+
-      (need.length?need.map((g,i)=>`<div class="predrow"><div class="product-main"><div class="product-name">${escapeHtml(g.name)}</div><div class="product-meta">${escapeHtml([g.quantity,g.store].filter(Boolean).join(' · '))}</div></div><button class="primary" data-wk="${i}" title="Toevoegen">+</button></div>`).join('')
+    const {need,noRecipe,planned}=weekNeeds(),{fri,thu}=periodWin(weekOff),fd=d=>d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
+    const rounds=[['fri','🛍️ Vrijdagronde',need.filter(g=>!SUN_STORES.includes(g.store))],['sun','🛒 Zondagronde (Jumbo)',need.filter(g=>SUN_STORES.includes(g.store))]];
+    if([0,6].includes(new Date().getDay()))rounds.reverse();
+    box.innerHTML=`<div class="pred"><div class="row between"><strong>🍽️ Nog nodig ${weekOff?'volgende':'deze'} week</strong><button class="secondary" data-wk="toggle">${weekOff?'← Deze':'Volgende →'}</button></div><div class="small">vrijdag ${fd(fri)} t/m donderdag ${fd(thu)}</div>`+
+      (need.length?rounds.map(([id,label,list])=>list.length?`<div class="row between" style="margin-top:10px"><strong class="small">${label}</strong><button class="primary" data-wk="all:${id}">Alles</button></div>`+list.map(g=>`<div class="predrow"><div class="product-main"><div class="product-name">${escapeHtml(g.name)}</div><div class="product-meta">${escapeHtml([g.quantity,g.store].filter(Boolean).join(' · '))}</div></div><button class="primary" data-wk="${need.indexOf(g)}" title="Toevoegen">+</button></div>`).join(''):'').join('')
       :`<p class="small" style="margin:8px 0 0">${planned?'Alles voor de geplande maaltijden staat al op de lijst of is gekocht. ✅':'Nog geen maaltijden gepland. Gebruik ✨ Weekvoorstel in de planner.'}</p>`)+
       (noRecipe.length?`<p class="small" style="margin:8px 0 0">Geen ingrediënten bekend voor: ${escapeHtml(noRecipe.join(', '))}</p>`:'')+'</div>';
   }
   $('weekCard').onclick=async e=>{
-    const b=e.target.closest('[data-wk]');if(!b)return;
-    if(b.dataset.wk==='toggle'){weekOff=weekOff?0:1;renderWeek();return}
-    const {need}=weekNeeds(),todo=b.dataset.wk==='all'?need:[need[+b.dataset.wk]].filter(Boolean);
+    const b=e.target.closest('[data-wk]');if(!b)return;const k=b.dataset.wk;
+    if(k==='toggle'){weekOff=weekOff?0:1;renderWeek();return}
+    const {need}=weekNeeds(),todo=k.startsWith('all:')?need.filter(g=>SUN_STORES.includes(g.store)===(k==='all:sun')):[need[+k]].filter(Boolean);
     b.disabled=true;for(const g of todo)if(!await putOnList(g))break;
     await loadItems();
   };
 
+  // ---------- Gerecht naar de lijst ----------
+  async function dishToList(d){
+    const f=persons/(d.servings||4),on=new Set(items.filter(x=>!x.completed).map(x=>norm(x.name)));
+    const todo=d.ingredients.filter(g=>!on.has(norm(g.name))).map(g=>({...g,quantity:scaleQty(g.quantity,f)}));
+    if(!todo.length){alert('Alles van '+d.name+' staat al op de lijst (of er zijn geen ingrediënten).');return}
+    const pan=todo.filter(g=>g.pantry);let use=todo.filter(g=>!g.pantry);
+    if(pan.length&&confirm('Ook meenemen wat je meestal in huis hebt?\n\n'+pan.map(g=>'• '+g.name).join('\n')+'\n\nOK = ja, Annuleren = nee'))use=todo;
+    if(!use.length){alert('Niets om toe te voegen.');return}
+    if(!confirm(d.name+' ('+persons+' personen) op de lijst zetten?\n\n'+use.map(g=>'• '+g.name+(g.quantity?' ('+g.quantity+')':'')+' – '+g.store).join('\n')))return;
+    for(const g of use)if(!await putOnList(g))break;
+    await loadItems();toast('🛒 '+use.length+' ingrediënten op de lijst');
+  }
+  $('dishToList').onclick=()=>{const d=editingDish;$('dishDlg').close();if(d)dishToList(d)};
+
+  // ---------- Standaard boodschappen ----------
+  $('stdStore').innerHTML=STORES.map(o=>`<option>${escapeHtml(o)}</option>`).join('');$('stdStore').value='Jumbo';
+  async function loadStd(){
+    const {data,error}=await sb.from('standard_items').select('*');
+    if(error){$('stdList').innerHTML='<p class="small">De tabel <b>standard_items</b> ontbreekt. Voer supabase_standaard.sql uit.</p>';return}
+    std=data||[];renderStd();renderWeek();renderPredictions();
+  }
+  function renderStd(){
+    const st=buildStats(),cnt=x=>st.get(norm(x.name))?.days.size||0,sk2=x=>(x.store_name||'').trim()||'Geen winkel';
+    const stores=[...new Set(std.map(sk2))].sort(storeCompare);
+    $('stdList').innerHTML=std.length?stores.map(sn=>`<div class="store-title">${escapeHtml(sn)}</div>`+std.filter(x=>sk2(x)===sn).sort((a,b)=>cnt(b)-cnt(a)||a.name.localeCompare(b.name,'nl')).map(x=>`<div class="predrow" style="border-top:1px solid var(--line)"><input type="checkbox" data-sel="${x.id}" ${x.selected?'checked':''} style="width:24px;min-width:24px;height:24px"><div class="product-main" data-edit="${x.id}" style="cursor:pointer"><div class="product-name">${escapeHtml(x.name)}</div><div class="product-meta">${escapeHtml(x.quantity||'')}</div></div><span class="badge">${cnt(x)}×</span><button class="secondary" data-edit="${x.id}" title="Wijzigen">✎</button></div>`).join('')).join(''):'<p class="small">Nog geen standaardproducten.</p>';
+    $('stdCount').textContent=std.filter(x=>x.selected).length+' van '+std.length+' staan aan';
+    const have=new Set(std.map(x=>norm(x.name)));
+    const sug=[...st.entries()].filter(([k,v])=>v.days.size>=3&&!have.has(k)).sort((a,b)=>b[1].days.size-a[1].days.size).slice(0,6);
+    $('stdSug').innerHTML=sug.length?'💡 Vaak gekocht, nog niet standaard: '+sug.map(([k,v])=>`<button class="secondary" data-sug="${escapeHtml(k)}" style="padding:5px 9px;margin:2px">+ ${escapeHtml(v.name)} (${v.days.size}×)</button>`).join(''):'';
+  }
+  async function addStd(rows){
+    const {error}=await sb.from('standard_items').insert(rows.map(r=>({selected:true,created_by:user.id,...r})));
+    if(error)fail(error);else await loadStd();
+  }
+  $('stdAdd').onclick=async()=>{
+    const parts=splitList($('stdName').value),have=new Set(std.map(x=>norm(x.name)));
+    const rows=parts.filter(n=>!have.has(norm(n))).map(n=>{const s=buildStats().get(norm(n)),k=s&&top(s.store);return {name:n,quantity:parts.length===1?($('stdQty').value.trim()||(s&&top(s.qty))||null):((s&&top(s.qty))||null),store_name:k&&STORES.includes(k)?k:$('stdStore').value}});
+    if(!rows.length){alert(parts.length?'Die staan al in de lijst.':'Vul een product in.');return}
+    $('stdName').value='';$('stdQty').value='';await addStd(rows);
+  };
+  $('stdSug').onclick=async e=>{
+    const b=e.target.closest('[data-sug]');if(!b)return;
+    const v=buildStats().get(b.dataset.sug),k=top(v.store);
+    await addStd([{name:v.name,quantity:top(v.qty),store_name:k&&STORES.includes(k)?k:'Jumbo'}]);
+  };
+  $('stdList').onchange=async e=>{
+    const c=e.target.closest('[data-sel]');if(!c)return;
+    const x=std.find(y=>String(y.id)===c.dataset.sel);if(!x)return;x.selected=c.checked;renderStd();renderWeek();
+    const {error}=await sb.from('standard_items').update({selected:c.checked}).eq('id',x.id);if(error){fail(error);loadStd()}
+  };
+  $('stdList').onclick=e=>{const b=e.target.closest('[data-edit]');if(b)openStd(std.find(y=>String(y.id)===b.dataset.edit))};
+  function openStd(x){
+    editingStd=x;if(!x)return;
+    $('stdEditStore').innerHTML=[...new Set([...STORES,x.store_name].filter(Boolean))].map(o=>`<option>${escapeHtml(o)}</option>`).join('');
+    $('stdEditName').value=x.name;$('stdEditQty').value=x.quantity||'';$('stdEditStore').value=x.store_name||'Jumbo';$('stdDlg').showModal();
+  }
+  $('stdCancel').onclick=()=>$('stdDlg').close();
+  $('stdSave').onclick=async()=>{
+    const name=$('stdEditName').value.trim();if(!name||!editingStd)return;
+    const {error}=await sb.from('standard_items').update({name,quantity:$('stdEditQty').value.trim()||null,store_name:$('stdEditStore').value}).eq('id',editingStd.id);
+    $('stdDlg').close();if(error)fail(error);else await loadStd();
+  };
+  $('stdDel').onclick=async()=>{
+    if(!editingStd||!confirm(editingStd.name+' uit de standaardlijst halen?'))return;
+    const {error}=await sb.from('standard_items').delete().eq('id',editingStd.id);
+    $('stdDlg').close();if(error)fail(error);else await loadStd();
+  };
+  $('stdPush').onclick=async()=>{
+    const open=new Set(items.filter(x=>!x.completed).map(x=>norm(x.name))),todo=std.filter(x=>x.selected&&!open.has(norm(x.name)));
+    if(!todo.length){alert('Alles wat aanstaat staat al op de lijst.');return}
+    if(!confirm(todo.length+' producten op de boodschappenlijst zetten?\n\n'+todo.map(x=>'• '+x.name+(x.quantity?' ('+x.quantity+')':'')).join('\n')))return;
+    for(const x of todo)if(!await putOnList({name:x.name,quantity:x.quantity,store:x.store_name||'Jumbo'}))break;
+    await loadItems();toast('📌 Op de lijst gezet');
+  };
+
   // ---------- Historie ----------
-  let histOff=0,editingBuy=null;
+  
   const lday=t=>new Date(t).toLocaleDateString('sv');
-  function histWin(){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7)-7*histOff);const e=new Date(d);e.setDate(d.getDate()+6);return {mon:d,sun:e}}
+  function histWin(){const {fri,thu}=periodWin(-histOff);return {mon:fri,sun:thu}}
   function renderHist(){
     const box=$('histBox');if(!box)return;
     const {mon,sun}=histWin(),a=dayNr(mon),b=dayNr(sun),fd=d=>d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
@@ -396,7 +494,7 @@
   };
 
   // ---------- Looproute, delen, offline, back-up ----------
-  let walkOn=localStorage.getItem('gp_walk')==='1',walk=new Map();
+  
   const wl=()=>$('walkBtn').textContent='🧭 Looproute-volgorde: '+(walkOn?'aan':'uit');wl();
   $('walkBtn').onclick=()=>{walkOn=!walkOn;localStorage.setItem('gp_walk',walkOn?'1':'0');wl();renderItems();renderShop()};
   function buildWalk(){ // in welke volgorde vinken jullie producten per winkel af? Gemiddelde plek in het winkelrondje.
@@ -419,18 +517,18 @@
   };
   $('copyWeek').onclick=async()=>{
     const rows=[];
-    for(let i=0;i<7;i++){const d=new Date();d.setHours(12);d.setDate(d.getDate()+i);const p=new Date(d);p.setDate(p.getDate()-7);const m=meals[dateKey(p)];if(m&&!meals[dateKey(d)])rows.push({meal_date:dateKey(d),meal:m.meal,created_by:user.id})}
+    for(const d of planDays()){const p=new Date(d);p.setDate(p.getDate()-7);const m=meals[dateKey(p)];if(m&&!meals[dateKey(d)])rows.push({meal_date:dateKey(d),meal:m.meal,created_by:user.id})}
     if(!rows.length){alert('Niets te kopiëren: vorige week is leeg of de dagen zijn al gepland.');return}
     if(!confirm('Overnemen van vorige week:\n\n'+rows.map(r=>'• '+r.meal_date+': '+r.meal).join('\n')))return;
     const {error}=await sb.from('meal_plans').insert(rows);if(error)fail(error);else await loadMeals();
   };
   $('backupBtn').onclick=()=>{
-    const b=new Blob([JSON.stringify({gemaakt:new Date().toISOString(),maaltijden:Object.values(meals),lijst:items,gerechten:dishes,aankopen:purchases},null,1)],{type:'application/json'});
+    const b=new Blob([JSON.stringify({gemaakt:new Date().toISOString(),maaltijden:Object.values(meals),lijst:items,gerechten:dishes,standaard:std,aankopen:purchases},null,1)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='gezinsplanner-backup-'+dateKey(new Date())+'.json';a.click();
   };
 
   // ---------- Extra's ----------
-  let persons=+localStorage.getItem('gp_persons')||4,shopStore=null,wake=null;
+  let shopStore=null,wake=null;
   $('persons').value=persons;$('persons').onchange=()=>{persons=Math.max(1,+$('persons').value||4);localStorage.setItem('gp_persons',persons)};
   const scaleQty=(q,f)=>!q||f===1?q:q.replace(/^\d+([.,]\d+)?/,n=>String(Math.round(parseFloat(n.replace(',','.'))*f*10)/10).replace('.',','));
   function toast(t,undo){const e=document.createElement('div');e.textContent=t;if(undo){const b=document.createElement('button');b.textContent='Ongedaan maken';b.style.cssText='margin-left:12px;background:#fff;color:#24364b;border-radius:8px;padding:6px 10px';b.onclick=()=>{e.remove();undo()};e.append(b)}e.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#24364b;color:#fff;padding:12px 16px;border-radius:12px;z-index:99;max-width:90vw';document.body.append(e);setTimeout(()=>e.remove(),undo?8000:4000)}
@@ -443,8 +541,8 @@
     $('insights').innerHTML=buy.length||eat.length?`<strong>📊 Inzicht</strong><br>Meest gekocht: ${f(buy)}<br>Meest gegeten: ${f(eat)}`:'';
   }
   $('weekPlan').onclick=async()=>{ // vult lege dagen met gerechten die lang niet geweest zijn (👍 telt extra, 👎 valt af)
-    const free=[];for(let i=0;i<7;i++){const d=new Date();d.setHours(12);d.setDate(d.getDate()+i);if(!meals[dateKey(d)])free.push(dateKey(d))}
-    if(!free.length){alert('De komende 7 dagen zijn al gepland.');return}
+    const free=planDays().map(d=>dateKey(d)).filter(k=>!meals[k]);
+    if(!free.length){alert('Alle dagen van deze periode zijn al gepland.');return}
     const pool=dishes.filter(d=>d.rating!==-1&&norm(d.name)!=='vaste boodschappen').map(d=>({d,s:Math.min(eatStats(d).days,60)/60+(d.rating===1?.5:0)+Math.random()*.3})).sort((a,b)=>b.s-a.s).slice(0,free.length);
     if(!pool.length){alert('Voeg eerst gerechten toe op het tabblad Gerechten.');return}
     const plan=pool.map((p,i)=>({date:free[i],meal:p.d.name}));
@@ -575,13 +673,14 @@ Paprika | 2 | Markt
     const m=meals[dateKey(selected)],box=$('mealDish');if(!box)return;
     if(!m){box.innerHTML='';return}
     const d=dishFor(m.meal);
-    box.innerHTML=d&&d.ingredients.length?`🛒 ${d.ingredients.length} ingrediënten bekend voor ${escapeHtml(d.name)}.`:'Nog geen ingrediënten bij dit gerecht. <a href="#" id="newDishLink">Toevoegen</a>';
+    box.innerHTML=d&&d.ingredients.length?`🛒 ${d.ingredients.length} ingrediënten bekend voor ${escapeHtml(d.name)}. <a href="#" id="mealToList">Op de lijst zetten</a>`:'Nog geen ingrediënten bij dit gerecht. <a href="#" id="newDishLink">Toevoegen</a>';
     const a=$('newDishLink');if(a)a.onclick=e=>{e.preventDefault();openDish(d,m.meal)};
+    const t=$('mealToList');if(t)t.onclick=e=>{e.preventDefault();dishToList(d)};
   }
   function openDish(d,name){
     editingDish=d||null;$('dishTitle').textContent=d?'Gerecht wijzigen':'Nieuw gerecht';
     $('dishName').value=d?d.name:(name||'');$('dishIng').value=d?fmtIng(d.ingredients):'';$('dishServ').value=d?.servings||4;$('dishRate').value=d?.rating??'';
-    $('dishDel').classList.toggle('hidden',!d);$('dishDlg').showModal();
+    $('dishDel').classList.toggle('hidden',!d);$('dishToList').classList.toggle('hidden',!d);$('dishDlg').showModal();
   }
   $('dishList').onclick=e=>{const r=e.target.closest('[data-dish]');if(r)openDish(dishes.find(d=>String(d.id)===r.dataset.dish))};
   $('addDish').onclick=()=>openDish();
@@ -636,7 +735,7 @@ Paprika | 2 | Markt
     let {data,error}=await sb.from('shopping_purchases').select('*').order('created_at',{ascending:false}).limit(2000);
     if(error)({data,error}=await sb.from('shopping_purchases').select('*'));
     if(error){fail(error);return}
-    purchases=data||[];buildWalk();renderPredictions();renderItems();renderHist();
+    purchases=data||[];buildWalk();renderPredictions();renderItems();renderHist();renderStd();
   }
   function buildStats(){
     const map=new Map();
@@ -653,7 +752,7 @@ Paprika | 2 | Markt
   // Per product: hoe vaak koop je het (mediaan van de tussenpozen, laatste 8 aankopen)
   // en hoe lang geleden was de laatste keer? Bijna of al aan de beurt => voorstel.
   function predict(){
-    const today=dayNr(Date.now()),active=new Set(items.map(x=>norm(x.name)));
+    const today=dayNr(Date.now()),active=new Set([...items.map(x=>norm(x.name)),...std.filter(x=>x.selected).map(x=>norm(x.name))]);
     const out=[];
     buildStats().forEach((s,k)=>{
       if(active.has(k)||(dismissed[k]||0)>Date.now())return;
@@ -721,7 +820,7 @@ Paprika | 2 | Markt
     await loadItems();
   };
   $('itemInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('addItem').click()});$('quantityInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('addItem').click()});$('mealInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('saveMeal').click()});
-  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));$('calendarPanel').classList.toggle('hidden',b.dataset.tab!=='calendar');$('shoppingPanel').classList.toggle('hidden',b.dataset.tab!=='shopping');$('dishesPanel').classList.toggle('hidden',b.dataset.tab!=='dishes');$('histPanel').classList.toggle('hidden',b.dataset.tab!=='history')});
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));$('calendarPanel').classList.toggle('hidden',b.dataset.tab!=='calendar');$('shoppingPanel').classList.toggle('hidden',b.dataset.tab!=='shopping');$('dishesPanel').classList.toggle('hidden',b.dataset.tab!=='dishes');$('histPanel').classList.toggle('hidden',b.dataset.tab!=='history');$('stdPanel').classList.toggle('hidden',b.dataset.tab!=='std')});
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 })();
 </script>
