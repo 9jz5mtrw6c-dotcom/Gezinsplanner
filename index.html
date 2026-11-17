@@ -129,7 +129,7 @@
       <h2 style="margin:0">Standaard boodschappen</h2>
       <p class="small">Producten die jullie regelmatig halen. Het vinkje bepaalt of een product op de boodschappenlijst komt. Per winkel, meest gekocht bovenaan.</p>
       <div class="row" style="gap:8px;flex-wrap:wrap"><input id="stdName" placeholder="Product (meerdere met komma)" list="productSuggestions" autocomplete="off" style="flex:2;min-width:140px"><input id="stdQty" placeholder="Hoeveelheid" style="flex:1;min-width:90px"><select id="stdStore" style="flex:1;min-width:110px"></select><button class="primary" id="stdAdd">+</button></div>
-      <div id="stdSug" class="small" style="margin:10px 0"></div><button class="secondary round-button" id="stdImport" style="margin-bottom:8px">📥 Overnemen uit de boodschappenlijst</button>
+      <div id="stdSug" class="small" style="margin:10px 0"></div><button class="secondary round-button" id="stdImport" style="margin-bottom:8px">📥 Overnemen uit de boodschappenlijst</button><button class="secondary round-button" id="stdStoreMode" style="margin-bottom:8px">🏬 Winkels aanpassen</button><button class="secondary round-button" id="stdStoreAuto" style="margin-bottom:8px">🪄 Winkels invullen uit aankoophistorie</button>
       <div class="row between" style="margin:8px 0"><span class="small" id="stdCount"></span><button class="primary" id="stdPush">📌 Aangevinkte op de lijst</button></div>
       <div id="stdList"></div>
     </div></section>
@@ -175,7 +175,7 @@
   if(location.protocol.startsWith('http')){const ml=document.createElement('link');ml.rel='manifest';ml.href='manifest.webmanifest';document.head.append(ml);navigator.serviceWorker?.register('sw.js').catch(()=>{})}
   [['apple-mobile-web-app-capable','yes'],['mobile-web-app-capable','yes'],['apple-mobile-web-app-title','GezinsPlanner'],['theme-color','#2866a5']].forEach(([n,c])=>{const m=document.createElement('meta');m.name=n;m.content=c;document.head.append(m)});
   let sb=null, user=null, month=new Date(new Date().getFullYear(),new Date().getMonth(),1), selected=new Date();
-  let meals={}, items=[], channel=null, purchases=[], started=null, editing=null, dishes=[], editingDish=null, std=[], editingStd=null, weekOff=0, histOff=0, editingBuy=null, walkOn=localStorage.getItem('gp_walk')==='1', walk=new Map(), persons=+localStorage.getItem('gp_persons')||4;
+  let meals={}, items=[], channel=null, purchases=[], started=null, editing=null, dishes=[], editingDish=null, std=[], editingStd=null, stdEdit=false, weekOff=0, histOff=0, editingBuy=null, walkOn=localStorage.getItem('gp_walk')==='1', walk=new Map(), persons=+localStorage.getItem('gp_persons')||4;
   let dismissed=JSON.parse(localStorage.getItem('gp_dismissed')||'{}');
   const later=(fn,ms=250)=>{let t;return()=>{clearTimeout(t);t=setTimeout(fn,ms)}};
   const configKey='gezinsplanner_supabase_config';
@@ -405,7 +405,7 @@
   function renderStd(){
     const st=buildStats(),cnt=x=>st.get(norm(x.name))?.days.size||0,sk2=x=>(x.store_name||'').trim()||'Geen winkel';
     const stores=[...new Set(std.map(sk2))].sort(storeCompare);
-    $('stdList').innerHTML=std.length?stores.map(sn=>`<div class="store-title">${escapeHtml(sn)}</div>`+std.filter(x=>sk2(x)===sn).sort((a,b)=>cnt(b)-cnt(a)||a.name.localeCompare(b.name,'nl')).map(x=>`<div class="predrow" style="border-top:1px solid var(--line)"><input type="checkbox" data-sel="${x.id}" ${x.selected?'checked':''} style="width:24px;min-width:24px;height:24px"><div class="product-main" data-edit="${x.id}" style="cursor:pointer"><div class="product-name">${escapeHtml(x.name)}</div><div class="product-meta">${escapeHtml(x.quantity||'')}</div></div><span class="badge">${cnt(x)}×</span><button class="secondary" data-edit="${x.id}" title="Wijzigen">✎</button></div>`).join('')).join(''):'<p class="small">Nog geen standaardproducten.</p>';
+    $('stdList').innerHTML=std.length?stores.map(sn=>`<div class="store-title">${escapeHtml(sn)}</div>`+std.filter(x=>sk2(x)===sn).sort((a,b)=>cnt(b)-cnt(a)||a.name.localeCompare(b.name,'nl')).map(x=>`<div class="predrow" style="border-top:1px solid var(--line)"><input type="checkbox" data-sel="${x.id}" ${x.selected?'checked':''} style="width:24px;min-width:24px;height:24px"><div class="product-main" data-edit="${x.id}" style="cursor:pointer"><div class="product-name">${escapeHtml(x.name)}</div><div class="product-meta">${escapeHtml(x.quantity||'')}</div></div>${stdEdit?`<select data-store="${x.id}" style="max-width:135px;padding:8px">${storeOpts(x)}</select>`:`<span class="badge">${cnt(x)}×</span><button class="secondary" data-edit="${x.id}" title="Wijzigen">✎</button>`}</div>`).join('')).join(''):'<p class="small">Nog geen standaardproducten.</p>';
     $('stdCount').textContent=std.filter(x=>x.selected).length+' van '+std.length+' staan aan';
     const have=new Set(std.map(x=>norm(x.name)));
     const sug=[...st.entries()].filter(([k,v])=>v.days.size>=3&&!have.has(k)).sort((a,b)=>b[1].days.size-a[1].days.size).slice(0,6);
@@ -427,6 +427,8 @@
     await addStd([{name:v.name,quantity:top(v.qty),store_name:k&&STORES.includes(k)?k:'Jumbo'}]);
   };
   $('stdList').onchange=async e=>{
+    const ss=e.target.closest('[data-store]');
+    if(ss){const x=std.find(y=>String(y.id)===ss.dataset.store);if(!x)return;x.store_name=ss.value;const {error}=await sb.from('standard_items').update({store_name:ss.value}).eq('id',x.id);if(error){fail(error);loadStd()}return}
     const c=e.target.closest('[data-sel]');if(!c)return;
     const x=std.find(y=>String(y.id)===c.dataset.sel);if(!x)return;x.selected=c.checked;renderStd();renderWeek();
     const {error}=await sb.from('standard_items').update({selected:c.checked}).eq('id',x.id);if(error){fail(error);loadStd()}
@@ -454,6 +456,19 @@
     if(!confirm(todo.length+' producten op de boodschappenlijst zetten?\n\n'+todo.map(x=>'• '+x.name+(x.quantity?' ('+x.quantity+')':'')).join('\n')))return;
     for(const x of todo)if(!await putOnList({name:x.name,quantity:x.quantity,store:x.store_name||'Jumbo'}))break;
     await loadItems();toast('📌 Op de lijst gezet');
+  };
+
+  // ---------- Winkels in de standaardlijst ----------
+  const storeOpts=x=>{const cur=(x.store_name||'').trim();return (cur?'':'<option value="" selected>(kies)</option>')+[...new Set([...STORES,cur].filter(Boolean))].map(o=>`<option ${o===cur?'selected':''}>${escapeHtml(o)}</option>`).join('')};
+  $('stdStoreMode').onclick=()=>{stdEdit=!stdEdit;$('stdStoreMode').textContent=stdEdit?'✅ Klaar met winkels':'🏬 Winkels aanpassen';renderStd()};
+  $('stdStoreAuto').onclick=async()=>{
+    const st=buildStats(),ch=[];
+    std.forEach(x=>{const v=st.get(norm(x.name)),k=v&&top(v.store);if(k&&STORES.includes(k)&&k!==(x.store_name||'').trim())ch.push([x,k])});
+    if(!ch.length){alert('Geen verschillen: de aankoophistorie kent voor deze producten geen andere winkel.');return}
+    if(!confirm(ch.length+' producten verplaatsen naar de winkel waar jullie ze meestal kopen?\n\n'+ch.slice(0,25).map(([x,k])=>'• '+x.name+': '+((x.store_name||'').trim()||'geen')+' → '+k).join('\n')+(ch.length>25?'\n…':'')))return;
+    const res=await Promise.all(ch.map(([x,k])=>sb.from('standard_items').update({store_name:k}).eq('id',x.id)));
+    const bad=res.find(r=>r.error);if(bad)fail(bad.error);
+    await loadStd();toast('🪄 '+ch.length+' winkels bijgewerkt');
   };
 
   // ---------- Lijst overnemen naar Standaard ----------
