@@ -129,7 +129,7 @@
       <h2 style="margin:0">Standaard boodschappen</h2>
       <p class="small">Producten die jullie regelmatig halen. Het vinkje bepaalt of een product op de boodschappenlijst komt. Per winkel, meest gekocht bovenaan.</p>
       <div class="row" style="gap:8px;flex-wrap:wrap"><input id="stdName" placeholder="Product (meerdere met komma)" list="productSuggestions" autocomplete="off" style="flex:2;min-width:140px"><input id="stdQty" placeholder="Hoeveelheid" style="flex:1;min-width:90px"><select id="stdStore" style="flex:1;min-width:110px"></select><button class="primary" id="stdAdd">+</button></div>
-      <div id="stdSug" class="small" style="margin:10px 0"></div>
+      <div id="stdSug" class="small" style="margin:10px 0"></div><button class="secondary round-button" id="stdImport" style="margin-bottom:8px">📥 Overnemen uit de boodschappenlijst</button>
       <div class="row between" style="margin:8px 0"><span class="small" id="stdCount"></span><button class="primary" id="stdPush">📌 Aangevinkte op de lijst</button></div>
       <div id="stdList"></div>
     </div></section>
@@ -152,6 +152,12 @@
 <dialog id="buyDlg"><h3 id="buyTitle" style="margin:0 0 6px">Aankoop</h3>
   <label>Product</label><input id="buyName" list="productSuggestions" autocomplete="off"><label>Hoeveelheid</label><input id="buyQty"><label>Winkel</label><select id="buyStore"></select><label>Datum</label><input id="buyDate" type="date">
   <div class="row" style="margin-top:16px"><button class="danger hidden" id="buyDel">Wissen</button><button class="secondary" id="buyCancel" style="flex:1">Annuleren</button><button class="primary" id="buySave" style="flex:1">Opslaan</button></div></dialog>
+<dialog id="impDlg"><h3 style="margin:0 0 6px">Overnemen naar Standaard</h3>
+  <p class="small">Dit staat nu op de boodschappenlijst en nog niet in de standaardlijst. Haal het vinkje weg bij wat je niet wilt overnemen.</p>
+  <div id="impList" style="max-height:42vh;overflow:auto"></div>
+  <label class="row" style="gap:10px;margin-top:12px"><input type="checkbox" id="impOn" style="width:24px;min-width:24px;height:24px"><span class="small">Meteen aanzetten (komt dan elke ronde op de lijst)</span></label>
+  <label class="row" style="gap:10px;margin-top:8px"><input type="checkbox" id="impDel" style="width:24px;min-width:24px;height:24px"><span class="small">Daarna de open producten van de boodschappenlijst halen (afgevinkte blijven staan voor het afronden)</span></label>
+  <div class="row" style="margin-top:14px"><button class="secondary" id="impCancel" style="flex:1">Annuleren</button><button class="primary" id="impSave" style="flex:1">Overnemen</button></div></dialog>
 <dialog id="stdDlg"><h3 style="margin:0 0 6px">Standaardproduct</h3>
   <label>Product</label><input id="stdEditName"><label>Hoeveelheid</label><input id="stdEditQty"><label>Winkel</label><select id="stdEditStore"></select>
   <div class="row" style="margin-top:16px"><button class="danger" id="stdDel">Wissen</button><button class="secondary" id="stdCancel" style="flex:1">Annuleren</button><button class="primary" id="stdSave" style="flex:1">Opslaan</button></div></dialog>
@@ -448,6 +454,27 @@
     if(!confirm(todo.length+' producten op de boodschappenlijst zetten?\n\n'+todo.map(x=>'• '+x.name+(x.quantity?' ('+x.quantity+')':'')).join('\n')))return;
     for(const x of todo)if(!await putOnList({name:x.name,quantity:x.quantity,store:x.store_name||'Jumbo'}))break;
     await loadItems();toast('📌 Op de lijst gezet');
+  };
+
+  // ---------- Lijst overnemen naar Standaard ----------
+  let imp=[];
+  $('stdImport').onclick=()=>{
+    const have=new Set(std.map(x=>norm(x.name))),m=new Map(),sn=x=>storeKey(x)||'Geen winkel';
+    items.forEach(x=>{const k=norm(x.name);if(!have.has(k)&&!m.has(k))m.set(k,x)});
+    if(!m.size){alert('Alles van de boodschappenlijst staat al in de standaardlijst.');return}
+    imp=[...m.values()].sort((a,b)=>storeCompare(sn(a),sn(b))||a.name.localeCompare(b.name,'nl'));
+    $('impList').innerHTML=imp.map((x,i)=>`<label class="predrow" style="gap:10px"><input type="checkbox" checked data-i="${i}" style="width:24px;min-width:24px;height:24px"><span>${escapeHtml(x.name)}${x.quantity?' ('+escapeHtml(x.quantity)+')':''} · ${escapeHtml(sn(x))}</span></label>`).join('');
+    $('impOn').checked=false;$('impDel').checked=false;$('impDlg').showModal();
+  };
+  $('impCancel').onclick=()=>$('impDlg').close();
+  $('impSave').onclick=async()=>{
+    const pick=[...$('impList').querySelectorAll('input:checked')].map(i=>imp[+i.dataset.i]);
+    $('impDlg').close();if(!pick.length)return;
+    const rows=pick.map(x=>({name:x.name,quantity:x.quantity||null,store_name:storeKey(x)||'Jumbo',selected:$('impOn').checked,created_by:user.id}));
+    const {error}=await sb.from('standard_items').insert(rows);
+    if(error){fail(error);return}
+    if($('impDel').checked){const open=pick.filter(x=>!x.completed).map(x=>x.id);if(open.length){const {error:e2}=await sb.from('shopping_items').delete().in('id',open);if(e2)fail(e2)}}
+    await Promise.all([loadStd(),loadItems()]);toast('📥 '+rows.length+' producten overgenomen');
   };
 
   // ---------- Historie ----------
