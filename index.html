@@ -61,6 +61,18 @@
       @media(max-width:520px){.tabs{gap:4px}.tab{padding:8px 0;font-size:10.5px;line-height:1.35}}
     .agday{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0}.agday.today{border-color:#2866a5;box-shadow:0 0 0 2px #2866a533}
     .agrow{display:flex;gap:10px;align-items:stretch;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}.agbar{width:5px;border-radius:3px;flex:none}
+    .agwrap{overflow-x:auto;margin:0 -6px;padding:0 6px}
+    .aggrid{display:grid;grid-template-columns:34px repeat(7,minmax(54px,1fr));min-width:430px;font-size:11px}
+    .aghc{text-align:center;padding:4px 0;border-bottom:1px solid var(--line);cursor:pointer;font-weight:600;line-height:1.3}.aghc.today{color:#fff;background:#2866a5;border-radius:8px}
+    .agad{border-bottom:1px solid var(--line);padding:2px;min-width:0}
+    .agchip{color:#fff;border-radius:5px;padding:1px 4px;margin:1px 0;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+    .agtime{position:relative}.agtime span{position:absolute;right:3px;font-size:10px;color:var(--muted);transform:translateY(-50%)}
+    .agcol{position:relative;border-left:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px)}.agcol.today{background-color:#2866a510}
+    .agev{position:absolute;box-sizing:border-box;border-radius:6px;color:#fff;font-size:10px;line-height:1.2;padding:2px 3px;overflow:hidden;cursor:pointer;border:1px solid #fff}
+    .agnow{position:absolute;left:0;right:0;height:2px;background:#e53e3e;z-index:2}
+    .agmonth{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.agmh{text-align:center;font-size:12px;color:var(--muted)}
+    .agcell{min-height:56px;border:1px solid var(--line);border-radius:10px;padding:3px;background:#fff;cursor:pointer;min-width:0}.agcell.other{opacity:.45}.agcell.today{border-color:#2866a5}.agcell.sel{background:#e8f1fb;box-shadow:0 0 0 2px #2866a5}
+    .agnum{font-size:12px;font-weight:600}.agdots{display:flex;flex-wrap:wrap;gap:2px;margin-top:3px}.agdots .agdot{width:8px;height:8px;margin:0}
     .agdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 4px 0 0}.agpick{padding:7px 12px;border-radius:99px;border:2px solid;font-size:14px}
   </style>
 </head>
@@ -130,7 +142,7 @@
     </section>
     <section id="agPanel" class="hidden"><div class="card">
       <div class="row between"><h2 style="margin:0">Agenda</h2><button class="primary" id="agNew">+ Vaste afspraak</button></div>
-      <p class="small">Iedereen heeft een eigen kleur. Vaste afspraken herhalen elke week. Tik op een afspraak om hem te wijzigen, of om één dag over te slaan (bijvoorbeeld in een vakantie).</p>
+      <p class="small">Iedereen heeft een eigen kleur. Vaste afspraken herhalen elke week. Kies Maand, Week (zoals Outlook) of Lijst. Tik op een afspraak om hem te wijzigen of één dag over te slaan, bijvoorbeeld in een vakantie.</p>
       <div id="agBox"></div>
     </div></section>
     <section id="stdPanel" class="hidden"><div class="card">
@@ -462,18 +474,70 @@
     const ppl=a.people||[],t=a.start_time?agFmt(a.start_time)+(a.end_time?'–'+agFmt(a.end_time):''):'';
     return `<div class="agrow" data-agedit="${a.id}" data-agdate="${k}"><span class="agbar" style="background:${pcol(ppl[0])}"></span><div class="product-main"><div class="product-name">${KINDS[a.kind]?KINDS[a.kind][0]:'📌'} ${escapeHtml(a.title)}</div><div class="product-meta">${t?t+' · ':''}${ppl.map(p=>`<span class="agdot" style="background:${pcol(p)}"></span>${escapeHtml(p)} `).join('')}</div></div></div>`;
   }
+  let agView=localStorage.getItem('gp_agview')||'week',agMOff=0,agSel=dateKey(new Date());
+  const toMin=t=>{const x=String(t).split(':');return +x[0]*60+ +x[1]};
+  const agGrad=ppl=>{const c=(ppl&&ppl.length?ppl:[null]).map(pcol);return c.length===1?c[0]:'linear-gradient(90deg,'+c.map((x,i)=>`${x} ${i*100/c.length}% ${(i+1)*100/c.length}%`).join(',')+')'};
+  const agFd=d=>d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
+  function agMon(){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7)+7*agOff);return d}
+  function agLanes(list){ // naast elkaar zetten van overlappende afspraken
+    list.sort((x,y)=>x.s-y.s||y.e-x.e);
+    const out=[];let group=[],gEnd=0;
+    const flush=()=>{const lanes=[];group.forEach(it=>{let l=lanes.findIndex(le=>le<=it.s);if(l<0){l=lanes.length;lanes.push(0)}lanes[l]=it.e;it.lane=l});group.forEach(it=>it.n=lanes.length);out.push(...group);group=[]};
+    list.forEach(it=>{if(group.length&&it.s>=gEnd)flush();gEnd=group.length?Math.max(gEnd,it.e):it.e;group.push(it)});
+    flush();return out;
+  }
+  function agHead(){
+    let title;
+    if(agView==='month'){const t=new Date();title=new Date(t.getFullYear(),t.getMonth()+agMOff,1).toLocaleDateString('nl-NL',{month:'long',year:'numeric'})}
+    else{const mon=agMon(),end=new Date(mon);end.setDate(mon.getDate()+6);title='Week '+isoWeek(mon)+' · '+agFd(mon)+' – '+agFd(end)}
+    const vb=[['month','Maand'],['week','Week'],['list','Lijst']].map(([v,l])=>{const on=agView===v;return `<button class="agpick" data-agv="${v}" style="border-color:#2866a5;background:${on?'#2866a5':'#fff'};color:${on?'#fff':'#2866a5'}">${l}</button>`}).join('');
+    return `<div class="row between"><button class="secondary" data-ag="prev">←</button><strong>${escapeHtml(title)}</strong><button class="secondary" data-ag="next">→</button></div><div class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0">${vb}<button class="secondary" data-ag="today" style="padding:7px 12px">Vandaag</button></div><div class="row" style="gap:6px;flex-wrap:wrap;margin:0 0 10px">`+
+      PEOPLE.map(([n,c])=>{const off=agHidden.has(n);return `<button class="agpick" data-agp="${n}" style="border-color:${c};background:${off?'#fff':c};color:${off?c:'#fff'}">${n}</button>`}).join('')+'</div>';
+  }
+  function agDayCard(d,k,extra){
+    const ev=agOn(d),m=meals[k],late=agLate(d);
+    return `<div class="agday ${k===dateKey(new Date())?'today':''}"><div class="row between"><strong>${d.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'short'})}</strong><span class="row" style="gap:6px">${extra||''}<button class="secondary" data-agadd="${k}" title="Eenmalige afspraak">+</button></span></div>`+
+      (m?`<div class="small">🍽️ ${escapeHtml(m.meal)}${cookAhead(d)?' · 🥘 dag ervoor koken':''}</div>`:'')+
+      (late.length?`<div class="small">⏰ Pas na ${LATE} thuis: ${escapeHtml(late.join(', '))}</div>`:'')+
+      ev.map(a=>agRow(a,k)).join('')+(ev.length||m?'':'<div class="small">–</div>')+'</div>';
+  }
+  function agListHtml(){let h='';const mon=agMon();for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);h+=agDayCard(d,dateKey(d))}return h}
+  function agMonthHtml(){
+    const t=new Date();t.setHours(12,0,0,0);
+    const first=new Date(t.getFullYear(),t.getMonth()+agMOff,1,12),lead=(first.getDay()+6)%7,dim=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+    const start=new Date(first);start.setDate(1-lead);const todayK=dateKey(t),rows=Math.ceil((lead+dim)/7);
+    let h='<div class="agmonth">'+WD.map(n=>`<div class="agmh">${n}</div>`).join('');
+    for(let i=0;i<rows*7;i++){
+      const d=new Date(start);d.setDate(start.getDate()+i);const k=dateKey(d),dots=[];
+      agOn(d).forEach(a=>(a.people&&a.people.length?a.people:[null]).forEach(pp=>dots.push(pcol(pp))));
+      h+=`<div class="agcell ${d.getMonth()!==first.getMonth()?'other':''} ${k===todayK?'today':''} ${k===agSel?'sel':''}" data-agday="${k}"><div class="agnum">${d.getDate()}</div><div class="agdots">${dots.slice(0,8).map(c=>`<span class="agdot" style="background:${c}"></span>`).join('')}${dots.length>8?'<span class="small">+</span>':''}</div></div>`;
+    }
+    h+='</div>';
+    const sd=new Date(agSel+'T12:00');
+    return h+'<div style="margin-top:12px">'+agDayCard(sd,agSel,`<button class="secondary" data-agweekof="${agSel}">Week</button>`)+'</div>';
+  }
+  function agGridHtml(){
+    const mon=agMon(),todayK=dateKey(new Date()),HPX=34,days=[];
+    for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(d)}
+    const per=days.map(d=>{const timed=[],free=[];agOn(d).forEach(a=>{if(a.start_time){const s=toMin(a.start_time);timed.push({a,s,e:a.end_time?Math.max(toMin(a.end_time),s+30):s+60})}else free.push(a)});return {timed,free}});
+    let lo=7,hi=21;per.forEach(x=>x.timed.forEach(it=>{lo=Math.min(lo,Math.floor(it.s/60));hi=Math.max(hi,Math.ceil(it.e/60))}));hi=Math.min(hi,24);
+    const H=(hi-lo)*HPX,now=new Date(),nowM=now.getHours()*60+now.getMinutes();
+    let h='<div class="agwrap"><div class="aggrid"><div></div>'+days.map((d,i)=>`<div class="aghc ${dateKey(d)===todayK?'today':''}" data-agadd="${dateKey(d)}">${WD[i]}<br>${d.getDate()}${agLate(d).length?' ⏰':''}</div>`).join('');
+    h+='<div class="agad"></div>'+per.map((x,i)=>`<div class="agad">${x.free.map(a=>`<div class="agchip" style="background:${agGrad(a.people)}" data-agedit="${a.id}" data-agdate="${dateKey(days[i])}">${escapeHtml(a.title)}</div>`).join('')}</div>`).join('');
+    h+=`<div class="agtime" style="height:${H}px">`+Array.from({length:hi-lo},(_,i)=>`<span style="top:${i*HPX}px">${String(lo+i).padStart(2,'0')}</span>`).join('')+'</div>';
+    h+=per.map((x,i)=>{
+      const k=dateKey(days[i]);
+      return `<div class="agcol ${k===todayK?'today':''}" style="height:${H}px;background-size:100% ${HPX}px">`+agLanes(x.timed).map(it=>{
+        const w=100/it.n;
+        return `<div class="agev" style="top:${(it.s-lo*60)/60*HPX}px;height:${Math.max((it.e-it.s)/60*HPX,18)}px;left:${it.lane*w}%;width:${w}%;background:${agGrad(it.a.people)}" data-agedit="${it.a.id}" data-agdate="${k}"><b>${agFmt(it.a.start_time)}</b> ${escapeHtml(it.a.title)}</div>`;
+      }).join('')+(k===todayK&&nowM>=lo*60&&nowM<=hi*60?`<div class="agnow" style="top:${(nowM-lo*60)/60*HPX}px"></div>`:'')+'</div>';
+    }).join('');
+    return h+'</div></div><p class="small">Tik op een dagnaam voor een eenmalige afspraak, of op een blok om te wijzigen. Afspraken zonder tijd staan bovenaan de dag.</p>';
+  }
   function renderAgenda(){
     renderMealAg();
     const box=$('agBox');if(!box)return;
-    const mon=new Date();mon.setHours(12,0,0,0);mon.setDate(mon.getDate()-((mon.getDay()+6)%7)+7*agOff);
-    const end=new Date(mon);end.setDate(mon.getDate()+6);const fd=d=>d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'}),today=dateKey(new Date());
-    let h=`<div class="row between"><button class="secondary" data-ag="prev">←</button><strong>Week ${isoWeek(mon)} · ${fd(mon)} – ${fd(end)}</strong><button class="secondary" data-ag="next">→</button></div><div class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0">`+
-      PEOPLE.map(([n,c])=>{const off=agHidden.has(n);return `<button class="agpick" data-agp="${n}" style="border-color:${c};background:${off?'#fff':c};color:${off?c:'#fff'}">${n}</button>`}).join('')+'</div>';
-    for(let i=0;i<7;i++){
-      const d=new Date(mon);d.setDate(mon.getDate()+i);const k=dateKey(d),ev=agOn(d),m=meals[k];
-      h+=`<div class="agday ${k===today?'today':''}"><div class="row between"><strong>${d.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'short'})}</strong><button class="secondary" data-agadd="${k}" title="Eenmalige afspraak">+</button></div>`+
-        (m?`<div class="small">🍽️ ${escapeHtml(m.meal)}${cookAhead(d)?' · 🥘 dag ervoor koken':''}</div>`:'')+(agLate(d).length?`<div class="small">⏰ Pas na ${LATE} thuis: ${escapeHtml(agLate(d).join(', '))}</div>`:'')+ev.map(a=>agRow(a,k)).join('')+(ev.length||m?'':'<div class="small">–</div>')+'</div>';
-    }
+    let h=agHead()+(agView==='month'?agMonthHtml():agView==='list'?agListHtml():agGridHtml());
     if(!agenda.length)h+='<button class="secondary round-button" data-agseed="1">🏃 Voorbeeld: Michel hardlopen (zaterdag + zondag)</button>';
     box.innerHTML=h;
   }
@@ -549,9 +613,15 @@
     $('agDlg').close();if(error)fail(error);else await loadAgenda();
   };
   $('agBox').onclick=async e=>{
-    const t=e.target.closest('button,[data-agedit]');if(!t)return;const d=t.dataset;
-    if(d.ag){agOff+=d.ag==='next'?1:-1;renderAgenda();return}
+    const t=e.target.closest('button,[data-agedit],[data-agadd],[data-agday]');if(!t)return;const d=t.dataset;
+    if(d.ag){if(d.ag==='today'){agOff=0;agMOff=0;agSel=dateKey(new Date())}else{const v=d.ag==='next'?1:-1;if(agView==='month')agMOff+=v;else agOff+=v}renderAgenda();return}
+    if(d.agv){agView=d.agv;localStorage.setItem('gp_agview',agView);renderAgenda();return}
     if(d.agp){agHidden.has(d.agp)?agHidden.delete(d.agp):agHidden.add(d.agp);localStorage.setItem('gp_aghide',JSON.stringify([...agHidden]));renderAgenda();return}
+    if(d.agday){agSel=d.agday;renderAgenda();return}
+    if(d.agweekof){
+      const mondayOf=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate()-((x.getDay()+6)%7),12);
+      agOff=Math.round((mondayOf(new Date(d.agweekof+'T12:00'))-mondayOf(new Date()))/(7*864e5));agView='week';renderAgenda();return;
+    }
     if(d.agadd){openAg(null,d.agadd,'d');return}
     if(d.agedit){openAg(agenda.find(a=>String(a.id)===d.agedit),d.agdate);return}
     if(d.agseed){const {error}=await sb.from('agenda_items').insert({title:'Hardlopen',kind:'sport',people:['Michel'],weekdays:[6,7],created_by:user.id});if(error)fail(error);else await loadAgenda()}
