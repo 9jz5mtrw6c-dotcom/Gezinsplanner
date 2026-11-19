@@ -127,7 +127,7 @@
     </section>
     <section id="stdPanel" class="hidden"><div class="card">
       <h2 style="margin:0">Standaard boodschappen</h2>
-      <p class="small">Producten die jullie regelmatig halen. Het vinkje bepaalt of een product op de boodschappenlijst komt. Per winkel, meest gekocht bovenaan.</p>
+      <p class="small">Producten die jullie regelmatig halen. Het vinkje bepaalt of een product op de boodschappenlijst komt. Per winkel; wat jullie vaker dan één keer hebben gekocht staat bovenaan, de rest op alfabet.</p>
       <div class="row" style="gap:8px;flex-wrap:wrap"><input id="stdName" placeholder="Product (meerdere met komma)" list="productSuggestions" autocomplete="off" style="flex:2;min-width:140px"><input id="stdQty" placeholder="Hoeveelheid" style="flex:1;min-width:90px"><select id="stdStore" style="flex:1;min-width:110px"></select><button class="primary" id="stdAdd">+</button></div>
       <div id="stdSug" class="small" style="margin:10px 0"></div><button class="secondary round-button" id="stdImport" style="margin-bottom:8px">📥 Overnemen uit de boodschappenlijst</button><button class="secondary round-button" id="stdStoreMode" style="margin-bottom:8px">🏬 Winkels aanpassen</button><button class="secondary round-button" id="stdStoreAuto" style="margin-bottom:8px">🪄 Winkels invullen uit aankoophistorie</button>
       <div class="row between" style="margin:8px 0"><span class="small" id="stdCount"></span><button class="primary" id="stdPush">📌 Aangevinkte op de lijst</button></div>
@@ -405,7 +405,7 @@
   function renderStd(){
     const st=buildStats(),cnt=x=>st.get(norm(x.name))?.days.size||0,sk2=x=>(x.store_name||'').trim()||'Geen winkel';
     const stores=[...new Set(std.map(sk2))].sort(storeCompare);
-    $('stdList').innerHTML=std.length?stores.map(sn=>`<div class="store-title">${escapeHtml(sn)}</div>`+std.filter(x=>sk2(x)===sn).sort((a,b)=>cnt(b)-cnt(a)||a.name.localeCompare(b.name,'nl')).map(x=>`<div class="predrow" style="border-top:1px solid var(--line)"><input type="checkbox" data-sel="${x.id}" ${x.selected?'checked':''} style="width:24px;min-width:24px;height:24px"><div class="product-main" data-edit="${x.id}" style="cursor:pointer"><div class="product-name">${escapeHtml(x.name)}</div><div class="product-meta">${escapeHtml(x.quantity||'')}</div></div>${stdEdit?`<select data-store="${x.id}" style="max-width:135px;padding:8px">${storeOpts(x)}</select>`:`<button class="secondary" data-edit="${x.id}" title="Wijzigen">✎</button>`}</div>`).join('')).join(''):'<p class="small">Nog geen standaardproducten.</p>';
+    $('stdList').innerHTML=std.length?stores.map(sn=>`<div class="store-title">${escapeHtml(sn)}</div>`+std.filter(x=>sk2(x)===sn).sort((a,b)=>(cnt(b)>=2?cnt(b):0)-(cnt(a)>=2?cnt(a):0)||a.name.localeCompare(b.name,'nl')).map(x=>`<div class="predrow" style="border-top:1px solid var(--line)"><input type="checkbox" data-sel="${x.id}" ${x.selected?'checked':''} style="width:24px;min-width:24px;height:24px"><div class="product-main" data-edit="${x.id}" style="cursor:pointer"><div class="product-name">${escapeHtml(x.name)}</div><div class="product-meta">${escapeHtml(x.quantity||'')}</div></div>${stdEdit?`<select data-store="${x.id}" style="max-width:135px;padding:8px">${storeOpts(x)}</select>`:`<button class="secondary" data-edit="${x.id}" title="Wijzigen">✎</button>`}</div>`).join('')).join(''):'<p class="small">Nog geen standaardproducten.</p>';
     $('stdCount').textContent=std.filter(x=>x.selected).length+' van '+std.length+' staan aan';
     const have=new Set(std.map(x=>norm(x.name)));
     const sug=[...st.entries()].filter(([k,v])=>v.days.size>=3&&!have.has(k)).sort((a,b)=>b[1].days.size-a[1].days.size).slice(0,6);
@@ -499,11 +499,11 @@
   function renderHist(){
     const box=$('histBox');if(!box)return;
     const {mon,sun}=histWin(),a=dayNr(mon),b=dayNr(sun),fd=d=>d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
-    const rows=purchases.filter(p=>p.created_at&&dayNr(p.created_at)>=a&&dayNr(p.created_at)<=b).sort((x,y)=>String(y.created_at).localeCompare(String(x.created_at)));
-    const days={};rows.forEach(p=>(days[lday(p.created_at)]??=[]).push(p));
+    const pt=p=>p.created_at||p.purchased_at;const rows=purchases.filter(p=>pt(p)&&dayNr(pt(p))>=a&&dayNr(pt(p))<=b).sort((x,y)=>String(pt(y)).localeCompare(String(pt(x))));
+    const days={};rows.forEach(p=>(days[lday(pt(p))]??=[]).push(p));
     const eaten=[];for(const d=new Date(mon);d<=sun;d.setDate(d.getDate()+1)){const m=meals[dateKey(d)];if(m)eaten.push(d.toLocaleDateString('nl-NL',{weekday:'short'})+': '+escapeHtml(m.meal))}
     box.innerHTML=`<div class="row between"><button class="secondary" data-h="prev">←</button><strong>${fd(mon)} – ${fd(sun)}${histOff?'':' (deze week)'}</strong><button class="secondary" data-h="next" ${histOff?'':'disabled'}>→</button></div>
-      <p class="small">${rows.length} aankopen · ${eaten.length} maaltijden. Klopt iets niet? Tik op een aankoop om te wijzigen of te wissen, zo blijft de voorspelling zuiver.</p>
+      <p class="small">${rows.length} aankopen in deze week · ${purchases.length} in totaal in de historie · ${eaten.length} maaltijden. Klopt iets niet? Tik op een aankoop om te wijzigen of te wissen, zo blijft de voorspelling zuiver.</p>
       <h3 style="margin:10px 0 4px">🍽️ Gegeten</h3><p class="small" style="margin:0">${eaten.join('<br>')||'Niets gepland.'}</p>
       <h3 style="margin:14px 0 4px">🛒 Gekocht</h3>`+
       (Object.keys(days).sort().reverse().map(k=>`<div class="store-title">${new Date(k+'T12:00').toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'short'})}</div>`+days[k].map(p=>`<div class="predrow" data-buy="${p.id}" style="cursor:pointer;border-top:1px solid var(--line)"><div class="product-main"><div class="product-name">${escapeHtml(p.product_name)}</div><div class="product-meta">${escapeHtml([p.quantity,p.store_name].filter(Boolean).join(' · '))}</div></div><button class="secondary" title="Wijzigen">✎</button></div>`).join('')).join('')||'<p class="small">Geen aankopen in deze week.</p>')+
